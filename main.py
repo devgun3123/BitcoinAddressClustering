@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
-import re,ast
+import re, ast
 import time
 import multiprocessing as mp
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -9,63 +9,68 @@ import warnings
 warnings.filterwarnings('ignore')
 from statsmodels.formula.api import ols
 
-'''read datasets'''
+'''데이터셋 읽기'''
 
-datasets_path=''
-tx=pd.read_csv(datasets_path+"/transactions_data.csv")
-input_data=pd.read_csv(datasets_path+"/input_data.csv")
-output_data=pd.read_csv(datasets_path+"/output_data.csv")
-ad_info=pd.read_csv(datasets_path+"/address_info.csv")
-tx_list=tx['tx_hash'].tolist()
+datasets_path = ''
+tx = pd.read_csv(datasets_path+"/transactions_data.csv")
+input_data = pd.read_csv(datasets_path+"/input_data.csv")
+output_data = pd.read_csv(datasets_path+"/output_data.csv")
+ad_info = pd.read_csv(datasets_path+"/address_info.csv")
+tx_list = tx['tx_hash'].tolist()
 
-'''Address Script Type Processing'''
-def address_script(input_data,output_data):
+'''주소 스크립트 유형 처리'''
+def address_script(input_data, output_data):
 
-    ad_list=list(set(input_data['address_hash'].tolist()+output_data['address_hash'].tolist()))
-    script_type=[]
+    ad_list = list(set(input_data['address_hash'].tolist() + output_data['address_hash'].tolist()))
+    script_type = []
     for ad in ad_list:
-        if ad[0]=='1':
+        if ad[0] == '1':
             script_type.append('P2PKH')
-        elif ad[0]=='3':
+        elif ad[0] == '3':
             script_type.append('P2SH')
-        elif ad[:3]=='bc1':
+        elif ad[:3] == 'bc1':
             script_type.append('Bech32')
         else:
-            script_type.append('Address which can not be parsed')
+            script_type.append('주소를 파싱할 수 없는 유형')
 
-    ad_dataset=pd.DataFrame({'address_hash':ad_list,'script_type':script_type})
-    ad_script_dic={ad_list[i]:script_type[i] for i in range(len(ad_list))}
-    input_data=pd.merge(input_data,ad_dataset,on='address_hash',how='left')
-    output_data=pd.merge(output_data,ad_dataset,on='address_hash',how='left')
+    ad_dataset = pd.DataFrame({'address_hash': ad_list, 'script_type': script_type})
+    ad_script_dic = {ad_list[i]: script_type[i] for i in range(len(ad_list))}
+    input_data = pd.merge(input_data, ad_dataset, on='address_hash', how='left')
+    output_data = pd.merge(output_data, ad_dataset, on='address_hash', how='left')
     input_data.dropna(axis=0, subset=['script_type'], inplace=True)
     output_data.dropna(axis=0, subset=['script_type'], inplace=True)
 
-    return input_data,output_data,ad_script_dic
-input_data,output_data,ad_script_dic=address_script(input_data,output_data)
+    return input_data, output_data, ad_script_dic
+
+input_data, output_data, ad_script_dic = address_script(input_data, output_data)
+
+# 이 코드는 데이터셋을 읽고, 주소 스크립트 유형을 처리하는 함수를 포함합니다. 함수 내부에서는 주소 해시를 기준으로 주소 스크립트 유형을 결정하고, 해당 정보를 데이터프레임에 추가하고, 결측치를 제거하는 작업을 수행합니다.
+
 
 '''Identify change address'''
 
-def change_address_identify(tx,input_data,output_data,ad_info,tx_list,ad_script_dic):
-    start_time=time.time()
-    h2=[]
-    h3=[]
-    h4=[]
-    h5=[]
-    h6=[]
-    condition1=[]
-    condition2=[]
-    condition3=[]
-    h7=[]
-    tx_type=[]
-    k=0
-    for t in  tx_list:
+def change_address_identify(tx, input_data, output_data, ad_info, tx_list, ad_script_dic):
+    start_time = time.time()
+    h2 = []  # H2 결과를 저장할 리스트
+    h3 = []  # H3 결과를 저장할 리스트
+    h4 = []  # H4 결과를 저장할 리스트
+    h5 = []  # H5 결과를 저장할 리스트
+    h6 = []  # H6 결과를 저장할 리스트
+    condition1 = []  # 조건 1 결과를 저장할 리스트
+    condition2 = []  # 조건 2 결과를 저장할 리스트
+    condition3 = []  # 조건 3 결과를 저장할 리스트
+    h7 = []  # H7 결과를 저장할 리스트
+    tx_type = []  # 트랜잭션 유형을 저장할 리스트
+    k = 0
+
+    for t in tx_list:
         t_info = tx[tx['tx_hash'] == t]
-        input_count=t_info['input_count'].values[0]
+        input_count = t_info['input_count'].values[0]
         output_count = t_info['output_count'].values[0]
         tx_input = input_data[input_data['tx_hash'] == t]
         input_address = tx_input['address_hash'].tolist()
 
-        '''Judgment of transaction type'''
+        '''트랜잭션 유형 판단'''
         if input_count==0:
             tx_type.append('Invalid input')
         elif output_count==0:
